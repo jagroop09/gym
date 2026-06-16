@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0a">
+<title>My Training Tracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a0a; color: #f0f0f0;
+    min-height: 100vh; min-height: 100dvh;
+    padding: 12px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(80px, env(safe-area-inset-bottom));
+    max-width: 420px; margin: 0 auto;
+  }
+  button { font-family: inherit; }
+  input, textarea { font-family: inherit; }
+
+  /* Phase toggle */
+  .phase-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+  .phase-btn {
+    flex: 1; padding: 9px 0; border: none; border-radius: 10px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    transition: all 0.2s; color: #666; background: #141414;
+  }
+  .phase-btn.active { color: #fff; }
+
+  /* Day nav */
+  .day-nav {
+    display: flex; gap: 5px; margin-bottom: 12px;
+    overflow-x: auto; padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .day-nav::-webkit-scrollbar { display: none; }
+  .day-tab {
+    flex-shrink: 0; width: 54px; padding: 7px 0;
+    border: 2px solid transparent; border-radius: 10px;
+    font-weight: 600; font-size: 11px; cursor: pointer;
+    background: #141414; color: #666;
+    text-align: center; line-height: 1.3; position: relative;
+  }
+  .day-tab .sm { font-size: 9px; opacity: 0.7; display: block; }
+  .day-badge {
+    position: absolute; top: -4px; right: -4px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #2B9348; font-size: 8px; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Card header */
+  .card { background: #141414; border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+  .card-head { padding: 16px 16px 12px; }
+  .card-label { font-size: 11px; opacity: 0.8; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .card-title { font-size: 22px; font-weight: 800; margin-top: 2px; }
+  .card-sub { font-size: 12px; opacity: 0.8; margin-top: 1px; }
+  .pbar { margin-top: 10px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); }
+  .pbar-fill { height: 100%; border-radius: 2px; background: #fff; transition: width 0.3s; }
+  .pbar-text { font-size: 10px; opacity: 0.6; margin-top: 3px; }
+
+  /* Date selector */
+  .date-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 16px 12px; font-size: 12px;
+  }
+  .date-row input[type="date"] {
+    background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px;
+    color: #f0f0f0; padding: 6px 10px; font-size: 13px; font-weight: 600;
+  }
+  .date-row span { color: #888; font-size: 12px; }
+
+  /* Exercise rows */
+  .ex-list { padding: 0 10px 10px; }
+  .ex-item {
+    border-bottom: 1px solid #1e1e1e; padding: 10px 6px;
+    transition: all 0.2s;
+  }
+  .ex-item:last-child { border-bottom: none; }
+  .ex-item.done { opacity: 0.5; }
+  .ex-top { display: flex; align-items: flex-start; gap: 10px; }
+  .ex-check {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px; cursor: pointer;
+    font-size: 12px; color: #fff; font-weight: 700;
+    transition: all 0.2s; border: none;
+  }
+  .ex-info { flex: 1; min-width: 0; }
+  .ex-name { font-weight: 600; font-size: 13px; line-height: 1.3; }
+  .ex-item.done .ex-name { text-decoration: line-through; }
+  .ex-hint { font-size: 11px; color: #666; margin-top: 1px; }
+  .ex-sets-badge {
+    padding: 3px 8px; border-radius: 7px;
+    font-size: 11px; font-weight: 700; flex-shrink: 0; white-space: nowrap;
+  }
+
+  /* Expand/collapse toggle */
+  .ex-toggle {
+    display: flex; align-items: center; gap: 4px;
+    margin-top: 6px; margin-left: 32px;
+    font-size: 11px; color: #888; cursor: pointer;
+    background: none; border: none; padding: 2px 0;
+  }
+  .ex-toggle:hover { color: #bbb; }
+
+  /* Set logging area */
+  .set-log {
+    margin-top: 8px; margin-left: 32px;
+    background: #0d0d0d; border-radius: 10px; padding: 10px;
+    display: none;
+  }
+  .set-log.open { display: block; }
+  .set-header {
+    display: grid; grid-template-columns: 36px 1fr 1fr 36px;
+    gap: 6px; font-size: 10px; color: #555;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 0 2px 6px;
+  }
+  .set-row {
+    display: grid; grid-template-columns: 36px 1fr 1fr 36px;
+    gap: 6px; margin-bottom: 5px; align-items: center;
+  }
+  .set-num {
+    font-size: 12px; font-weight: 700; color: #555;
+    text-align: center;
+  }
+  .set-input {
+    background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 7px;
+    color: #f0f0f0; padding: 7px 8px; font-size: 13px;
+    font-weight: 600; width: 100%; text-align: center;
+  }
+  .set-input:focus { outline: none; border-color: #555; }
+  .set-input::placeholder { color: #444; font-weight: 400; }
+  .set-done-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 2px solid #333; background: transparent;
+    color: #555; font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .set-done-btn.checked { border: none; color: #fff; }
+  .add-set-btn {
+    background: none; border: 1px dashed #333; border-radius: 7px;
+    color: #555; font-size: 11px; font-weight: 600; padding: 6px;
+    width: 100%; cursor: pointer; margin-top: 4px;
+  }
+  .add-set-btn:hover { border-color: #666; color: #888; }
+
+  /* Comment */
+  .comment-area {
+    margin-top: 8px; width: 100%;
+    background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 7px;
+    color: #f0f0f0; padding: 7px 8px; font-size: 12px;
+    resize: none; min-height: 32px; max-height: 80px;
+  }
+  .comment-area:focus { outline: none; border-color: #555; }
+  .comment-area::placeholder { color: #444; }
+
+  /* Nav */
+  .nav-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .nav-btn {
+    flex: 1; padding: 12px; border: none; border-radius: 11px;
+    font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+  .nav-btn:disabled { cursor: default; }
+
+  /* History */
+  .history-btn {
+    display: block; width: 100%; padding: 12px; margin-bottom: 8px;
+    border: 1px solid #222; border-radius: 11px; background: #141414;
+    color: #aaa; font-size: 13px; font-weight: 600; cursor: pointer;
+    text-align: center;
+  }
+  .history-btn:hover { border-color: #444; color: #ddd; }
+  .history-panel {
+    background: #141414; border-radius: 14px; padding: 16px;
+    margin-bottom: 12px; display: none;
+  }
+  .history-panel.open { display: block; }
+  .history-panel h3 { font-size: 15px; margin-bottom: 12px; }
+  .history-entry {
+    padding: 10px 0; border-bottom: 1px solid #1e1e1e;
+  }
+  .history-entry:last-child { border-bottom: none; }
+  .history-date { font-size: 12px; color: #888; font-weight: 600; }
+  .history-ex { font-size: 13px; font-weight: 600; margin-top: 4px; }
+  .history-sets { font-size: 11px; color: #aaa; margin-top: 2px; }
+  .history-comment { font-size: 11px; color: #F77F00; margin-top: 2px; font-style: italic; }
+  .history-empty { color: #444; font-size: 13px; text-align: center; padding: 20px 0; }
+
+  /* Footer */
+  .footer { text-align: center; font-size: 11px; color: #444; margin-top: 12px; line-height: 1.5; padding: 0 16px; }
+  .reset-btn {
+    display: block; margin: 16px auto 0; padding: 8px 20px;
+    border: 1px solid #282828; border-radius: 8px;
+    background: transparent; color: #555; font-size: 11px;
+    cursor: pointer; font-weight: 600;
+  }
+  .reset-btn:hover { border-color: #E84855; color: #E84855; }
+
+  /* Prev weight hint */
+  .prev-weight {
+    font-size: 10px; color: #F77F00; margin-top: 2px;
+    margin-left: 32px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const P1 = [
+  { day:"Day 1 — Mon", title:"Upper Push", sub:"Shoulders, Chest & Triceps", color:"#E84855",
+    exercises:[
+      {name:"Overhead Dumbbell Press",sets:"4 × 10",hint:"Control the negative",defSets:4},
+      {name:"Incline Dumbbell Press (30°)",sets:"4 × 10",hint:"Upper chest focus",defSets:4},
+      {name:"Lateral Raises",sets:"4 × 12-15",hint:"Light, slow, controlled",defSets:4},
+      {name:"Cable Chest Fly",sets:"3 × 12",hint:"Squeeze at top",defSets:3},
+      {name:"Tricep Rope Pushdown",sets:"3 × 12-15",hint:"Lock elbows",defSets:3},
+      {name:"Overhead Tricep Extension",sets:"3 × 12",hint:"Full stretch",defSets:3},
+      {name:"Push-ups to Failure",sets:"2 sets",hint:"Finisher 🔥",defSets:2}
+    ]},
+  { day:"Day 2 — Tue", title:"Lower Body + Core", sub:"Legs & Abs", color:"#2B9348",
+    exercises:[
+      {name:"Goblet/Barbell Squat",sets:"4 × 10",hint:"Full depth",defSets:4},
+      {name:"Romanian Deadlift",sets:"4 × 10",hint:"Feel hamstring stretch",defSets:4},
+      {name:"Walking Lunges",sets:"3 × 12 each",hint:"Torso upright",defSets:3},
+      {name:"Leg Press / Bulgarian Split Squat",sets:"3 × 12",hint:"Pick one",defSets:3},
+      {name:"Hanging Leg Raise",sets:"3 × 12-15",hint:"No swinging",defSets:3},
+      {name:"Cable Woodchop",sets:"3 × 12 each",hint:"Twist from core",defSets:3},
+      {name:"Plank Hold",sets:"3 × 45-60s",hint:"Squeeze glutes",defSets:3}
+    ]},
+  { day:"Day 3 — Wed", title:"Upper Pull", sub:"Back & Biceps", color:"#3A86FF",
+    exercises:[
+      {name:"Lat Pulldown / Pull-ups",sets:"4 × 10",hint:"Full stretch & squeeze",defSets:4},
+      {name:"Seated Cable Row",sets:"4 × 10",hint:"Pull to lower chest",defSets:4},
+      {name:"Face Pulls",sets:"4 × 15",hint:"Shoulder health + rear delts",defSets:4},
+      {name:"Dumbbell Hammer Curl",sets:"3 × 12",hint:"Arm thickness",defSets:3},
+      {name:"Barbell / EZ-Bar Curl",sets:"3 × 10-12",hint:"No swinging",defSets:3},
+      {name:"Incline Dumbbell Curl",sets:"3 × 10",hint:"Max stretch",defSets:3},
+      {name:"Reverse Curl",sets:"2 × 15",hint:"Forearm finisher",defSets:2}
+    ]},
+  { day:"Day 5 — Fri", title:"Arms & Shoulders", sub:"The Money Day 💪", color:"#F77F00",
+    exercises:[
+      {name:"Arnold Press",sets:"4 × 10",hint:"All three delt heads",defSets:4},
+      {name:"Lateral Raise — Drop Set",sets:"3 × 10+10",hint:"Drop 30% after 10",defSets:3},
+      {name:"Rear Delt Fly",sets:"3 × 15",hint:"Slow squeeze",defSets:3},
+      {name:"⚡ Barbell Curl + Skull Crusher",sets:"4 × 10 each",hint:"Superset",defSets:4},
+      {name:"⚡ Hammer Curl + Dips",sets:"3 × 12 each",hint:"Superset",defSets:3},
+      {name:"Concentration Curl",sets:"3 × 10 each",hint:"Peak squeeze",defSets:3},
+      {name:"Single-Arm OH Tricep Ext",sets:"3 × 12 each",hint:"Full stretch",defSets:3},
+      {name:"21s Bicep Curl",sets:"2 sets",hint:"7+7+7 finisher 🔥",defSets:2}
+    ]},
+  { day:"Day 6 — Sat", title:"Conditioning + Core", sub:"Fat Burning Focus", color:"#9B5DE5",
+    exercises:[
+      {name:"Zone 2 Run / Brisk Walk",sets:"25-30 min",hint:"Conversational pace",defSets:1},
+      {name:"Kettlebell Swings",sets:"4 × 20",hint:"Explosive hips",defSets:4},
+      {name:"Mountain Climbers",sets:"3 × 30s",hint:"Fast but controlled",defSets:3},
+      {name:"Dead Bug",sets:"3 × 12 each",hint:"Lower abs, back flat",defSets:3},
+      {name:"Ab Wheel / Plank Walk-out",sets:"3 × 10-12",hint:"Anti-extension",defSets:3},
+      {name:"Russian Twist (weighted)",sets:"3 × 20 total",hint:"Controlled",defSets:3}
+    ]}
+];
+
+const P2 = [
+  { day:"Day 1 — Mon", title:"Upper Push", sub:"Heavier", color:"#E84855",
+    exercises:[
+      {name:"Seated DB Shoulder Press",sets:"4 × 8-10",hint:"Heavier than Phase 1",defSets:4},
+      {name:"Incline Barbell/DB Press",sets:"4 × 8-10",hint:"Increase weight",defSets:4},
+      {name:"Lateral Raise — 1.5 Rep",sets:"4 × 10",hint:"Full→half→full = 1 rep",defSets:4},
+      {name:"Cable Crossover (low→high)",sets:"3 × 12",hint:"Upper chest",defSets:3},
+      {name:"Close-Grip Bench Press",sets:"3 × 10",hint:"Heavy tricep builder",defSets:3},
+      {name:"Tricep Pushdown — Drop Set",sets:"3 × 10+10",hint:"Drop 30%",defSets:3},
+      {name:"Diamond Push-ups to Failure",sets:"2 sets",hint:"Finisher 🔥",defSets:2}
+    ]},
+  { day:"Day 2 — Tue", title:"Lower Body + Core", sub:"Intensified", color:"#2B9348",
+    exercises:[
+      {name:"Barbell Squat",sets:"4 × 8-10",hint:"Push heavier",defSets:4},
+      {name:"Stiff-Leg Deadlift",sets:"4 × 10",hint:"Deeper stretch",defSets:4},
+      {name:"Front Foot Elevated Split Squat",sets:"3 × 10 each",hint:"Brutal for quads",defSets:3},
+      {name:"Leg Curl",sets:"3 × 12",hint:"Slow negative",defSets:3},
+      {name:"Hanging Leg Raise (weighted)",sets:"4 × 10-12",hint:"Progress from P1",defSets:4},
+      {name:"Pallof Press",sets:"3 × 10 each",hint:"Anti-rotation",defSets:3},
+      {name:"Weighted Plank",sets:"3 × 45-60s",hint:"Plate on back",defSets:3}
+    ]},
+  { day:"Day 3 — Wed", title:"Upper Pull", sub:"Heavier", color:"#3A86FF",
+    exercises:[
+      {name:"Weighted Pull-ups / Heavy Pulldown",sets:"4 × 8-10",hint:"Add weight",defSets:4},
+      {name:"Single-Arm DB Row",sets:"4 × 10 each",hint:"Full stretch & squeeze",defSets:4},
+      {name:"Face Pulls — Pause",sets:"4 × 12-15",hint:"2s hold at peak",defSets:4},
+      {name:"Preacher Curl",sets:"4 × 10",hint:"No cheating",defSets:4},
+      {name:"Incline Hammer Curl",sets:"3 × 10",hint:"Max stretch",defSets:3},
+      {name:"Spider Curl",sets:"3 × 12",hint:"Constant tension",defSets:3},
+      {name:"Band Curl — 50 reps",sets:"1 set",hint:"Pump finisher 🔥",defSets:1}
+    ]},
+  { day:"Day 5 — Fri", title:"Arms & Shoulders", sub:"Intensified 💪🔥", color:"#F77F00",
+    exercises:[
+      {name:"Push Press",sets:"4 × 8",hint:"Heavier, use leg drive",defSets:4},
+      {name:"Cable Lateral Raise",sets:"4 × 12 each",hint:"Constant tension",defSets:4},
+      {name:"Reverse Pec Deck",sets:"3 × 15",hint:"Rear delt definition",defSets:3},
+      {name:"⚡ BB Curl + OH Ext + Lat Raise",sets:"3 × 10 each",hint:"Tri-set",defSets:3},
+      {name:"Cross-Body Hammer Curl",sets:"3 × 12 each",hint:"Arm width",defSets:3},
+      {name:"Tricep Kickback — Pause",sets:"3 × 12",hint:"2s squeeze at top",defSets:3},
+      {name:"EZ-Bar Curl 21s",sets:"3 sets",hint:"7+7+7",defSets:3},
+      {name:"OH Press Machine — Drop Set",sets:"1 × 10+8+6",hint:"Triple drop 🔥",defSets:1}
+    ]},
+  { day:"Day 6 — Sat", title:"Conditioning + Core", sub:"Increased Intensity", color:"#9B5DE5",
+    exercises:[
+      {name:"Interval Run: 1min fast / 2min easy",sets:"25-30 min",hint:"More fat burn",defSets:1},
+      {name:"Kettlebell Swings",sets:"5 × 20",hint:"30s rest only",defSets:5},
+      {name:"Burpees (no push-up)",sets:"4 × 10",hint:"Full body burner",defSets:4},
+      {name:"Hanging Knee Raise",sets:"4 × 15",hint:"Lower abs",defSets:4},
+      {name:"Ab Wheel Rollout",sets:"3 × 12",hint:"Full extension",defSets:3},
+      {name:"Farmer's Walk",sets:"3 × 40m",hint:"Carry heavy",defSets:3}
+    ]}
+];
+
+let S = { phase:1, ci:0, date: new Date().toISOString().split('T')[0], expanded:{}, showHistory:false };
+
+function db() {
+  try { return JSON.parse(localStorage.getItem('t_db')||'{}'); } catch(e) { return {}; }
+}
+function saveDb(d) { try { localStorage.setItem('t_db', JSON.stringify(d)); } catch(e) {} }
+
+function key(phase, ci, ei) { return `${phase}_${ci}_${ei}`; }
+function logKey(date, phase, ci, ei) { return `${date}|${key(phase,ci,ei)}`; }
+
+function getLog(date, phase, ci, ei) {
+  const d = db();
+  return d[logKey(date,phase,ci,ei)] || null;
+}
+function saveLog(date, phase, ci, ei, data) {
+  const d = db();
+  d[logKey(date,phase,ci,ei)] = data;
+  saveDb(d);
+}
+
+function getLastLog(phase, ci, ei, beforeDate) {
+  const d = db();
+  const prefix = key(phase,ci,ei);
+  let best = null, bestDate = '';
+  for (const k in d) {
+    if (k.endsWith('|'+prefix)) {
+      const dt = k.split('|')[0];
+      if (dt < beforeDate && dt > bestDate) {
+        bestDate = dt;
+        best = d[k];
+      }
+    }
+  }
+  return best;
+}
+
+function days() { return S.phase===1?P1:P2; }
+function card() { return days()[S.ci]; }
+
+function isDone(date, phase, ci, ei) {
+  const log = getLog(date,phase,ci,ei);
+  return log && log.done;
+}
+function dayDone(date, phase, ci) {
+  return days()[ci] ? days()[ci].exercises.every((_,i) => isDone(date,phase,ci,i)) : false;
+}
+function progress() {
+  return card().exercises.filter((_,i) => isDone(S.date,S.phase,S.ci,i)).length;
+}
+
+function toggleDone(ei) {
+  const log = getLog(S.date,S.phase,S.ci,ei) || { sets:[], comment:'', done:false };
+  log.done = !log.done;
+  saveLog(S.date,S.phase,S.ci,ei,log);
+  render();
+}
+
+function toggleExpand(ei) {
+  const k = key(S.phase,S.ci,ei);
+  S.expanded[k] = !S.expanded[k];
+  render();
+}
+
+function ensureSets(ei, count) {
+  const log = getLog(S.date,S.phase,S.ci,ei) || { sets:[], comment:'', done:false };
+  while (log.sets.length < count) log.sets.push({ weight:'', reps:'', done:false });
+  saveLog(S.date,S.phase,S.ci,ei,log);
+  return log;
+}
+
+function updateSet(ei, si, field, val) {
+  const log = getLog(S.date,S.phase,S.ci,ei);
+  if (!log) return;
+  log.sets[si][field] = val;
+  saveLog(S.date,S.phase,S.ci,ei,log);
+}
+
+function toggleSetDone(ei, si) {
+  const log = getLog(S.date,S.phase,S.ci,ei);
+  if (!log) return;
+  log.sets[si].done = !log.sets[si].done;
+  saveLog(S.date,S.phase,S.ci,ei,log);
+  render();
+}
+
+function addSet(ei) {
+  const log = getLog(S.date,S.phase,S.ci,ei);
+  if (!log) return;
+  log.sets.push({ weight:'', reps:'', done:false });
+  saveLog(S.date,S.phase,S.ci,ei,log);
+  render();
+}
+
+function updateComment(ei, val) {
+  const log = getLog(S.date,S.phase,S.ci,ei) || { sets:[], comment:'', done:false };
+  log.comment = val;
+  saveLog(S.date,S.phase,S.ci,ei,log);
+}
+
+function getHistory(phase, ci, ei) {
+  const d = db();
+  const suffix = '|'+key(phase,ci,ei);
+  const entries = [];
+  for (const k in d) {
+    if (k.endsWith(suffix)) {
+      const dt = k.split('|')[0];
+      entries.push({ date:dt, ...d[k] });
+    }
+  }
+  entries.sort((a,b) => b.date.localeCompare(a.date));
+  return entries.slice(0, 10);
+}
+
+function formatDate(d) {
+  const dt = new Date(d+'T12:00:00');
+  return dt.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+
+function render() {
+  const c = card();
+  const ds = days();
+  const prog = progress();
+  let h = '';
+
+  // Phase
+  h += '<div class="phase-bar">';
+  [1,2].forEach(p => {
+    const a = S.phase===p;
+    h += `<button class="phase-btn${a?' active':''}" style="background:${a?c.color:'#141414'};color:${a?'#fff':'#666'}" onclick="S.phase=${p};S.ci=0;render()">Phase ${p} ${p===1?'(Wk 1-6)':'(Wk 7-12)'}</button>`;
+  });
+  h += '</div>';
+
+  // Day tabs
+  h += '<div class="day-nav">';
+  ds.forEach((d,i) => {
+    const a = S.ci===i;
+    const done = dayDone(S.date,S.phase,i);
+    h += `<button class="day-tab" style="border-color:${a?d.color:'transparent'};background:${a?d.color+'22':'#141414'};color:${a?d.color:'#666'}" onclick="S.ci=${i};render()">
+      ${d.day.split(' — ')[1]}<span class="sm">${d.title.split(' ')[0]}</span>
+      ${done?'<span class="day-badge">✓</span>':''}
+    </button>`;
+  });
+  h += '</div>';
+
+  // Card
+  h += '<div class="card">';
+  h += `<div class="card-head" style="background:linear-gradient(135deg,${c.color},${c.color}cc)">`;
+  h += `<div class="card-label">${c.day}</div><div class="card-title">${c.title}</div><div class="card-sub">${c.sub}</div>`;
+  h += `<div class="pbar"><div class="pbar-fill" style="width:${(prog/c.exercises.length)*100}%"></div></div>`;
+  h += `<div class="pbar-text">${prog}/${c.exercises.length} done</div>`;
+  h += '</div>';
+
+  // Date
+  h += `<div class="date-row"><span>📅</span><input type="date" value="${S.date}" onchange="S.date=this.value;render()"><span>Session date</span></div>`;
+
+  // Exercises
+  h += '<div class="ex-list">';
+  c.exercises.forEach((ex, ei) => {
+    const done = isDone(S.date,S.phase,S.ci,ei);
+    const ek = key(S.phase,S.ci,ei);
+    const expanded = S.expanded[ek];
+    const log = ensureSets(ei, ex.defSets);
+    const prev = getLastLog(S.phase,S.ci,ei,S.date);
+
+    h += `<div class="ex-item${done?' done':''}">`;
+    h += `<div class="ex-top">`;
+    h += `<button class="ex-check" style="background:${done?c.color:'transparent'};border:${done?'none':'2px solid '+c.color+'44'}" onclick="toggleDone(${ei})">${done?'✓':''}</button>`;
+    h += `<div class="ex-info"><div class="ex-name">${ex.name}</div><div class="ex-hint">${ex.hint}</div></div>`;
+    h += `<div class="ex-sets-badge" style="background:${c.color}18;color:${c.color}">${ex.sets}</div>`;
+    h += `</div>`;
+
+    // Previous weight hint
+    if (prev && prev.sets && prev.sets.length > 0) {
+      const weights = prev.sets.filter(s=>s.weight).map(s=>`${s.weight}kg×${s.reps||'?'}`);
+      if (weights.length) {
+        h += `<div class="prev-weight">Last: ${weights.join(', ')}</div>`;
+      }
+    }
+
+    // Toggle
+    h += `<button class="ex-toggle" onclick="toggleExpand(${ei})">${expanded?'▾ Hide':'▸ Log'} sets & weight</button>`;
+
+    // Set log
+    h += `<div class="set-log${expanded?' open':''}">`;
+    h += `<div class="set-header"><div>Set</div><div style="text-align:center">Kg</div><div style="text-align:center">Reps</div><div></div></div>`;
+    log.sets.forEach((s, si) => {
+      h += `<div class="set-row">`;
+      h += `<div class="set-num">${si+1}</div>`;
+      h += `<input class="set-input" type="number" inputmode="decimal" placeholder="kg" value="${s.weight}" onchange="updateSet(${ei},${si},'weight',this.value)">`;
+      h += `<input class="set-input" type="number" inputmode="numeric" placeholder="reps" value="${s.reps}" onchange="updateSet(${ei},${si},'reps',this.value)">`;
+      h += `<button class="set-done-btn${s.done?' checked':''}" style="${s.done?'background:'+c.color:''}" onclick="toggleSetDone(${ei},${si})">${s.done?'✓':''}</button>`;
+      h += `</div>`;
+    });
+    h += `<button class="add-set-btn" onclick="addSet(${ei})">+ Add Set</button>`;
+    h += `<textarea class="comment-area" placeholder="Notes..." oninput="updateComment(${ei},this.value)">${log.comment||''}</textarea>`;
+    h += `</div>`;
+
+    h += `</div>`;
+  });
+  h += '</div></div>';
+
+  // Nav
+  const pDis = S.ci===0;
+  const nDis = S.ci===ds.length-1;
+  h += '<div class="nav-row">';
+  h += `<button class="nav-btn" style="background:#141414;color:${pDis?'#333':'#f0f0f0'}" ${pDis?'disabled':''} onclick="S.ci--;render()">← Prev</button>`;
+  h += `<button class="nav-btn" style="background:${nDis?'#141414':c.color};color:${nDis?'#333':'#fff'}" ${nDis?'disabled':''} onclick="S.ci++;render()">Next →</button>`;
+  h += '</div>';
+
+  // History
+  h += `<button class="history-btn" onclick="S.showHistory=!S.showHistory;render()">📊 ${S.showHistory?'Hide':'View'} Exercise History</button>`;
+  if (S.showHistory) {
+    h += '<div class="history-panel open">';
+    h += `<h3 style="color:${c.color}">Recent History</h3>`;
+    let hasAny = false;
+    c.exercises.forEach((ex, ei) => {
+      const hist = getHistory(S.phase, S.ci, ei);
+      if (hist.length > 0) {
+        hasAny = true;
+        h += `<div class="history-entry"><div class="history-ex">${ex.name}</div>`;
+        hist.forEach(entry => {
+          const setsStr = entry.sets.filter(s=>s.weight||s.reps).map(s=>`${s.weight||'?'}kg × ${s.reps||'?'}`).join(' | ');
+          if (setsStr) h += `<div class="history-date">${formatDate(entry.date)}</div><div class="history-sets">${setsStr}</div>`;
+          if (entry.comment) h += `<div class="history-comment">"${entry.comment}"</div>`;
+        });
+        h += '</div>';
+      }
+    });
+    if (!hasAny) h += '<div class="history-empty">No history yet. Start logging!</div>';
+    h += '</div>';
+  }
+
+  h += '<div class="footer">Thu & Sun = Rest · Drink water before fasted training · Protein within 60 min after</div>';
+  h += `<button class="reset-btn" onclick="if(confirm('Delete ALL training data? Cannot be undone.')){localStorage.removeItem('t_db');render()}">Reset All Data</button>`;
+
+  document.getElementById('app').innerHTML = h;
+}
+
+render();
+</script>
+</body>
+</html>
